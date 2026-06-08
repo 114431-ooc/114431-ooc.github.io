@@ -1,17 +1,318 @@
 <!DOCTYPE html>
-<html>
-  <head>
-<meta charset="utf-8">
-    <title>HAHA</title>
-    <link rel="icon" href="CAT.jpg">
-  </head>
-  <body>
-    hello world!
-    (╯°□°）╯︵ ┻━┻
-  </body>
-</html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>接蘋果遊戲</title>
 
-  
+<style>
+body{
+    margin:0;
+    overflow:hidden;
+    font-family:Arial;
+}
+
+canvas{
+    display:block;
+}
+
+#score{
+    position:absolute;
+    top:15px;
+    left:15px;
+    color:white;
+    font-size:30px;
+    font-weight:bold;
+    background:rgba(0,0,0,.5);
+    padding:10px 15px;
+    border-radius:10px;
+    display:none;
+}
+
+.screen{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.7);
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    color:white;
+    z-index:100;
+}
+
+button{
+    font-size:24px;
+    padding:12px 24px;
+    cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div id="score">分數：0</div>
+
+<div id="startScreen" class="screen">
+    <h1>🍎 接蘋果遊戲</h1>
+    <p>漏接一顆蘋果就遊戲結束</p>
+    <p id="bestStart">最高分：0</p>
+    <button onclick="startGame()">開始遊戲</button>
+</div>
+
+<div id="gameOverScreen" class="screen" style="display:none;">
+    <h1>遊戲結束</h1>
+    <p id="finalScore"></p>
+    <p id="bestScore"></p>
+    <button onclick="startGame()">再玩一次</button>
+</div>
+
+<canvas id="game"></canvas>
+
+<script>
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+function resize(){
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+
+resize();
+window.addEventListener("resize",resize);
+
+const bg = new Image();
+bg.src = "森林.jpg";
+
+const appleRaw = new Image();
+appleRaw.src = "蘋果.jpg";
+
+const basketRaw = new Image();
+basketRaw.src = "籃子.webp";
+
+let appleImg;
+let basketImg;
+
+function removeWhite(img){
+
+    const c = document.createElement("canvas");
+    c.width = img.width;
+    c.height = img.height;
+
+    const x = c.getContext("2d");
+
+    x.drawImage(img,0,0);
+
+    const data = x.getImageData(0,0,c.width,c.height);
+
+    for(let i=0;i<data.data.length;i+=4){
+
+        const r = data.data[i];
+        const g = data.data[i+1];
+        const b = data.data[i+2];
+
+        if(r>220 && g>220 && b>220){
+            data.data[i+3] = 0;
+        }
+    }
+
+    x.putImageData(data,0,0);
+
+    return c;
+}
+
+let score = 0;
+let highScore = localStorage.getItem("appleHigh") || 0;
+
+document.getElementById("bestStart").textContent =
+"最高分：" + highScore;
+
+let running = false;
+
+const basket = {
+    x:300,
+    w:170,
+    h:130
+};
+
+let apple = null;
+let speed = 3;
+
+document.addEventListener("mousemove",e=>{
+    basket.x = e.clientX - basket.w/2;
+});
+
+document.addEventListener("keydown",e=>{
+
+    if(e.key==="ArrowLeft"){
+        basket.x -= 30;
+    }
+
+    if(e.key==="ArrowRight"){
+        basket.x += 30;
+    }
+
+});
+
+function spawnApple(){
+
+    apple = {
+        x:Math.random()*(canvas.width-80),
+        y:-80,
+        size:80
+    };
+}
+
+function startGame(){
+
+    score = 0;
+    speed = 3;
+    running = true;
+
+    document.getElementById("score").style.display = "block";
+
+    document.getElementById("score").textContent =
+    "分數：0";
+
+    document.getElementById("startScreen").style.display =
+    "none";
+
+    document.getElementById("gameOverScreen").style.display =
+    "none";
+
+    spawnApple();
+}
+
+function gameOver(){
+
+    running = false;
+
+    if(score > highScore){
+
+        highScore = score;
+
+        localStorage.setItem(
+            "appleHigh",
+            highScore
+        );
+    }
+
+    document.getElementById("finalScore").textContent =
+    "本次分數：" + score;
+
+    document.getElementById("bestScore").textContent =
+    "最高分：" + highScore;
+
+    document.getElementById("bestStart").textContent =
+    "最高分：" + highScore;
+
+    document.getElementById("gameOverScreen").style.display =
+    "flex";
+}
+
+function update(){
+
+    if(!running || !apple) return;
+
+    const basketY =
+        canvas.height - basket.h - 20;
+
+    apple.y += speed;
+
+    const hit =
+        apple.x < basket.x + basket.w &&
+        apple.x + apple.size > basket.x &&
+        apple.y < basketY + basket.h &&
+        apple.y + apple.size > basketY;
+
+    if(hit){
+
+        score++;
+
+        document.getElementById("score").textContent =
+        "分數：" + score;
+
+        speed += 0.3;
+
+        apple = null;
+
+        setTimeout(()=>{
+
+            if(running){
+                spawnApple();
+            }
+
+        },250);
+    }
+
+    if(apple && apple.y > canvas.height){
+
+        gameOver();
+    }
+}
+
+function draw(){
+
+    ctx.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    ctx.drawImage(
+        bg,
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    if(apple){
+
+        ctx.drawImage(
+            appleImg,
+            apple.x,
+            apple.y,
+            apple.size,
+            apple.size
+        );
+    }
+
+    ctx.drawImage(
+        basketImg,
+        basket.x,
+        canvas.height-basket.h-20,
+        basket.w,
+        basket.h
+    );
+}
+
+function loop(){
+
+    update();
+    draw();
+
+    requestAnimationFrame(loop);
+}
+
+Promise.all([
+    new Promise(r=>bg.onload=r),
+    new Promise(r=>appleRaw.onload=r),
+    new Promise(r=>basketRaw.onload=r)
+]).then(()=>{
+
+    appleImg = removeWhite(appleRaw);
+    basketImg = removeWhite(basketRaw);
+
+    loop();
+});
+
+</script>
+
+</body>
+</html>  
   
   
   
